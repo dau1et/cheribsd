@@ -140,6 +140,7 @@ CRUNCH_PROGS_bin+=	cat \
 		ls \
 		mkdir \
 		mv \
+		pkill \
 		ps \
 		pwd \
 		realpath \
