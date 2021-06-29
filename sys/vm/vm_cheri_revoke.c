@@ -9,6 +9,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/proc.h>
 #include <sys/rwlock.h>
 #include <sys/sched.h>
+#include <sys/ktr.h>
 
 #include <vm/vm.h>
 #include <vm/vm_param.h>
@@ -366,6 +367,9 @@ vm_cheri_revoke_object_at(const struct vm_cheri_revoke_cookie *crc, int flags,
 
 		pmres = pmap_caploadgen_update(crc->map->pmap, addr, &m, 0);
 
+		CTR3(KTR_SPARE5, "caprevoke vis ini clg va=%zx %p %d",
+		    addr, m, pmres);
+
 		switch (pmres) {
 		case PMAP_CAPLOADGEN_OK:
 		case PMAP_CAPLOADGEN_TEARDOWN:
@@ -403,6 +407,8 @@ vm_cheri_revoke_object_at(const struct vm_cheri_revoke_cookie *crc, int flags,
 	 */
 	(void)vm_page_grab_valid(&m, obj, ipi,
 	    VM_ALLOC_WIRED | VM_ALLOC_NOBUSY | VM_ALLOC_NOZERO);
+
+	CTR2(KTR_SPARE5, "caprevoke grab valid va=%zx %p", addr, m);
 
 	if (m == NULL) {
 		if (flags & VM_CHERI_REVOKE_QUICK_SUCCESSOR) {
@@ -528,6 +534,8 @@ visit_rw:
 		goto visit_rw_fault;
 	}
 
+	CTR1(KTR_SPARE5, "caprevoke visit ro va=%zx", addr);
+
 	switch (vm_cheri_revoke_visit_ro(crc, flags, m, &viscap)) {
 	case VM_CHERI_REVOKE_VIS_DONE:
 		/* We were able to conclude that the page was clean */
@@ -562,6 +570,9 @@ visit_rw_fault:
 	}
 	VM_OBJECT_WUNLOCK(m->object);
 	vm_map_unlock_read(map);
+
+	CTR1(KTR_SPARE5, "caprevoke fault rw va=%zx", addr);
+
 	res = vm_fault(map, addr, VM_PROT_WRITE | VM_PROT_WRITE_CAP,
 	    VM_FAULT_NORMAL, &m);
 	vm_map_lock_read(map);

@@ -17,6 +17,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/lock.h>
 #include <sys/mutex.h>
 #include <sys/sysent.h>
+#include <sys/ktr.h>
 
 #include <vm/vm.h>
 #include <vm/vm_extern.h>
@@ -335,6 +336,8 @@ fast_out:
 	vm_cheri_revoke_publish_epochs(info_page, &crepochs);
 	wmb();
 
+	CTR1(KTR_SPARE5, "caprevoke pre-barrier pmap=%p", vmm->pmap);
+
 	/*
 	 * If we've already begun the load-side work and are now just going
 	 * to close it out, there's no need to do any thread singling, so
@@ -539,6 +542,8 @@ fast_out:
 		    &crepochs);
 	}
 	PROC_UNLOCK(td->td_proc);
+
+	CTR1(KTR_SPARE5, "caprevoke post-barrier pmap=%p", vmm->pmap);
 
 	/*
 	 * If we came in with no epoch open, we have just opened one.

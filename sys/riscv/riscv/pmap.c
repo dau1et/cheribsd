@@ -2870,7 +2870,8 @@ pmap_enter(pmap_t pmap, vm_offset_t va, vm_page_t m, vm_prot_t prot,
 	} else
 		new_l3 |= PTE_SW_MANAGED;
 
-	CTR2(KTR_PMAP, "pmap_enter: %.16lx -> %.16lx", va, pa);
+	CTR5(KTR_PMAP, "pmap_enter: %p %.16lx @ %lx %lx -> %.16lx",
+	    pmap, va, prot, flags, pa);
 
 	lock = NULL;
 	mpte = NULL;
@@ -3229,8 +3230,8 @@ pmap_enter_l2(pmap_t pmap, vm_offset_t va, pd_entry_t new_l2, u_int flags,
 	pmap_store(l2, new_l2);
 
 	atomic_add_long(&pmap_l2_mappings, 1);
-	CTR2(KTR_PMAP, "pmap_enter_l2: success for va %#lx in pmap %p",
-	    va, pmap);
+	CTR3(KTR_PMAP, "pmap_enter_l2: success for va %#lx in pmap %p (%#lx)",
+	    va, pmap, new_l2);
 
 	return (KERN_SUCCESS);
 }
@@ -3907,6 +3908,9 @@ out_unlocked:
 		vm_page_unwire_in_situ(*mp);
 	}
 	*mp = m;
+
+	CTR5(KTR_SPARE5, "pmap_caploadgen_update: %p %lx %lx -> %p %d",
+	    pmap, va, flags, m, res);
 
 	return res;
 }
