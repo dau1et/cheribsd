@@ -53,14 +53,20 @@
 #include <sys/param.h>
 #include <sys/_cpuset.h>
 
+/*
+ * The uintcap_t-s here are potentially live pointers in the kernel, but are
+ * just bits to userspace.
+ *
+ * Fields are arranged in non-increasing size to reduce padding.
+ */
 struct ktr_entry {
+	uintcap_t ktr_file;
+	uintcap_t ktr_desc;
+	uintcap_t ktr_thread;
+	uintcap_t ktr_parms[KTR_PARMS];
 	u_int64_t ktr_timestamp;
 	int	ktr_cpu;
 	int	ktr_line;
-	const	char *ktr_file;
-	const	char *ktr_desc;
-	struct	thread *ktr_thread;
-	uintptr_t ktr_parms[KTR_PARMS];
 };
 
 extern cpuset_t ktr_cpumask;
@@ -74,14 +80,14 @@ extern struct ktr_entry *ktr_buf;
 #ifdef KTR
 
 void	ktr_tracepoint(uint64_t mask, const char *file, int line,
-	    const char *format, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3,
-	    uintptr_t arg4, uintptr_t arg5, uintptr_t arg6);
+	    const char *format, uintcap_t arg1, uintcap_t arg2, uintcap_t arg3,
+	    uintcap_t arg4, uintcap_t arg5, uintcap_t arg6);
 
 #define CTR6(m, format, p1, p2, p3, p4, p5, p6) do {			\
 	if (KTR_COMPILE & (m))						\
 		ktr_tracepoint((m), __FILE__, __LINE__, format,		\
-		    (uintptr_t)(p1), (uintptr_t)(p2), (uintptr_t)(p3),	\
-		    (uintptr_t)(p4), (uintptr_t)(p5), (uintptr_t)(p6));	\
+		    (uintcap_t)(p1), (uintcap_t)(p2), (uintcap_t)(p3),	\
+		    (uintcap_t)(p4), (uintcap_t)(p5), (uintcap_t)(p6));	\
 	} while(0)
 #define CTR0(m, format)			CTR6(m, format, 0, 0, 0, 0, 0, 0)
 #define CTR1(m, format, p1)		CTR6(m, format, p1, 0, 0, 0, 0, 0)

@@ -318,8 +318,8 @@ SYSCTL_PROC(_debug_ktr, OID_AUTO, alq_enable,
 
 void
 ktr_tracepoint(uint64_t mask, const char *file, int line, const char *format,
-    uintptr_t arg1, uintptr_t arg2, uintptr_t arg3, uintptr_t arg4,
-    uintptr_t arg5, uintptr_t arg6)
+    uintcap_t arg1, uintcap_t arg2, uintcap_t arg3, uintcap_t arg4,
+    uintcap_t arg5, uintcap_t arg6)
 {
 	struct ktr_entry *entry;
 #ifdef KTR_ALQ
@@ -371,26 +371,33 @@ ktr_tracepoint(uint64_t mask, const char *file, int line, const char *format,
 	}
 	entry->ktr_timestamp = KTR_TIME;
 	entry->ktr_cpu = cpu;
-	entry->ktr_thread = curthread;
+	entry->ktr_thread = (uintcap_t)curthread;
 	if (file != NULL)
 		while (strncmp(file, "../", 3) == 0)
 			file += 3;
-	entry->ktr_file = file;
+	entry->ktr_file = (uintcap_t)file;
 	entry->ktr_line = line;
 #ifdef KTR_VERBOSE
 	if (ktr_verbose) {
 #ifdef SMP
-		printf("cpu%d ", cpu);
+		printf("cpu%d ", (int)cpu);
 #endif
 		if (ktr_verbose > 1) {
-			printf("%s.%d\t", entry->ktr_file,
+			printf("%s.%d\t", (char *)(uintptr_t)entry->ktr_file,
 			    entry->ktr_line);
 		}
-		printf(format, arg1, arg2, arg3, arg4, arg5, arg6);
-		printf("\n");
+		db_printf("%s -- ", format);
+		db_printf("%#lp %#lp %#lp %#lp %#lp %#lp",
+		    (void * __capability)arg1, 
+		    (void * __capability)arg2, 
+		    (void * __capability)arg3, 
+		    (void * __capability)arg4, 
+		    (void * __capability)arg5, 
+		    (void * __capability)arg6);
+		db_printf("\n");
 	}
 #endif
-	entry->ktr_desc = format;
+	entry->ktr_desc = (uintcap_t)format;
 	entry->ktr_parms[0] = arg1;
 	entry->ktr_parms[1] = arg2;
 	entry->ktr_parms[2] = arg3;
@@ -441,6 +448,7 @@ static int
 db_mach_vtrace(void)
 {
 	struct ktr_entry	*kp;
+	char *desc;
 
 	if (tstate.cur == tstate.first || ktr_buf == NULL) {
 		db_printf("--- End of trace buffer ---\n");
@@ -449,11 +457,11 @@ db_mach_vtrace(void)
 	kp = &ktr_buf[tstate.cur];
 
 	/* Skip over unused entries. */
-	if (kp->ktr_desc == NULL) {
+	if (kp->ktr_desc == 0) {
 		db_printf("--- End of trace buffer ---\n");
 		return (0);
 	}
-	db_printf("%d (%p", tstate.cur, kp->ktr_thread);
+	db_printf("%d (%p", tstate.cur, (void *)(ptraddr_t)kp->ktr_thread);
 #ifdef SMP
 	db_printf(":cpu%d", kp->ktr_cpu);
 #endif
@@ -462,12 +470,31 @@ db_mach_vtrace(void)
 		db_printf(" %10.10lld", (long long)kp->ktr_timestamp);
 	}
 	if (db_ktr_verbose >= 2) {
-		db_printf(" %s.%d", kp->ktr_file, kp->ktr_line);
+		char *fn =
+#ifdef __CHERI_PURE_CAPABILITY__
+		    /* In pure-cap kernels, the cast cap is directly usable */
+		    (char *)kp->ktr_file;
+#else
+		    /* In hybrid kernels, extract the address and use DDC */
+		    (char *)(ptraddr_t)kp->ktr_file;
+#endif
+		db_printf(" %s.%d", fn, kp->ktr_line);
 	}
 	db_printf(": ");
-	db_printf(kp->ktr_desc, kp->ktr_parms[0], kp->ktr_parms[1],
-	    kp->ktr_parms[2], kp->ktr_parms[3], kp->ktr_parms[4],
-	    kp->ktr_parms[5]);
+	desc =
+#ifdef __CHERI_PURE_CAPABILITY__
+	    (char *)kp->ktr_desc;
+#else
+	    (char *)(ptraddr_t)kp->ktr_desc;
+#endif
+	db_printf("%s -- ", desc);
+	db_printf("%#lp %#lp %#lp %#lp %#lp %#lp",
+	    (void * __capability)kp->ktr_parms[0], 
+	    (void * __capability)kp->ktr_parms[1], 
+	    (void * __capability)kp->ktr_parms[2], 
+	    (void * __capability)kp->ktr_parms[3], 
+	    (void * __capability)kp->ktr_parms[4], 
+	    (void * __capability)kp->ktr_parms[5]);
 	db_printf("\n");
 
 	if (tstate.first == -1)

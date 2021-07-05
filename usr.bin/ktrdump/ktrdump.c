@@ -90,7 +90,7 @@ static char sbuf[KTR_PARMS][SBUFLEN];
 int
 main(int ac, char **av)
 {
-	u_long parms[KTR_PARMS];
+	uintcap_t parms[KTR_PARMS];
 	struct ktr_entry *buf;
 	uintmax_t tlast, tnow;
 	unsigned long bufptr;
@@ -273,7 +273,7 @@ main(int ac, char **av)
 	if (!iflag) {
 		if (lflag) {
 			i = index2 + 1 % entries;
-			while (buf[i].ktr_desc == NULL && i != index) {
+			while (buf[i].ktr_desc == 0 && i != index) {
 				i++;
 				if (i == entries)
 					i = 0;
@@ -286,7 +286,7 @@ main(int ac, char **av)
 	}
 dump_entries:
 	for (;;) {
-		if (buf[i].ktr_desc == NULL)
+		if (buf[i].ktr_desc == 0)
 			break;
 		if (kvm_read(kd, (u_long)buf[i].ktr_desc, desc,
 		    sizeof(desc)) == -1)
@@ -312,7 +312,7 @@ next:			if ((c = *p++) == '\0')
 				    sbuf[parm], sizeof(sbuf[parm])) == -1)
 					strcpy(sbuf[parm], "(null)");
 				sbuf[parm][sizeof(sbuf[0]) - 1] = '\0';
-				parms[parm] = (u_long)sbuf[parm];
+				parms[parm] = (uintcap_t)sbuf[parm];
 				parm++;
 				break;
 			default:
@@ -344,9 +344,20 @@ next:			if ((c = *p++) == '\0')
 			fprintf(out, "%-40s ", obuf);
 		}
 		if (hflag)
-			fprintf(out, "%p ", buf[i].ktr_thread);
-		fprintf(out, desc, parms[0], parms[1], parms[2], parms[3],
-		    parms[4], parms[5]);
+			fprintf(out, "%lx ", (u_long)buf[i].ktr_thread);
+		fprintf(out, "%s -- ", desc);
+		static const char *fmtn[] = {
+		    "",
+		    "%#lp",
+		    "%#lp %#lp",
+		    "%#lp %#lp %#lp",
+		    "%#lp %#lp %#lp %#lp",
+		    "%#lp %#lp %#lp %#lp %#lp",
+		    "%#lp %#lp %#lp %#lp %#lp %#lp"
+		};
+		fprintf(out, fmtn[parm],
+		    parms[0], parms[1], parms[2],
+		    parms[3], parms[4], parms[5]);
 		fprintf(out, "\n");
 		if (!iflag) {
 			/*
