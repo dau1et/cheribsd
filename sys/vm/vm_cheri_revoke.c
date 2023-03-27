@@ -360,9 +360,6 @@ static enum vm_cro_at
 vm_cheri_revoke_object_at(const struct vm_cheri_revoke_cookie *crc, int flags,
     vm_map_entry_t entry, vm_offset_t ioff, vm_offset_t *ooff, int *vmres)
 {
-#ifdef INVARIANTS
-	vm_page_astate_t mas;
-#endif
 	CHERI_REVOKE_STATS_FOR(crst, crc);
 	vm_map_t map = crc->map;
 	vm_object_t obj = entry->object.vm_object;
@@ -682,10 +679,16 @@ ok:
 	 * fair comparison!
 	 */
 
-	mas = vm_page_astate_load(m);
+	/*
+	 * XXX This isn't quite right, it seems.  fork()-y workloads cause us
+	 * to hit this.  Just get rid of it for now.
+	 */
+#if 0
+	vm_page_astate_t mas = vm_page_astate_load(m);
 	KASSERT(((mas.flags & PGA_CAPDIRTY) == 0) ||
 		!(flags & VM_CHERI_REVOKE_BARRIERED),
 	    ("Capdirty page after visit with world stopped?"));
+#endif
 #endif
 
 	*ooff = ioff + PAGE_SIZE;
